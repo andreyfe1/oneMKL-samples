@@ -123,11 +123,11 @@ void Binomial<DATA_TYPE>::body() {
                 // next block) elements across work items
                 slm_call[local_id] = local_call[0];
                 if (wg_size > sg_size) {
-                  item.barrier(sycl::access::fence_space::local_space);
+                  sycl::group_barrier(wg, sycl::memory_scope::work_group);
                 }
                 local_call[block_size] = slm_call[local_id + 1];
                 if (wg_size > sg_size) {
-                  item.barrier(sycl::access::fence_space::local_space);
+                  sycl::group_barrier(wg, sycl::memory_scope::work_group);
                 }
                 if (block_start <= i) {
                   for (int j = 0; j < block_size; j++) {

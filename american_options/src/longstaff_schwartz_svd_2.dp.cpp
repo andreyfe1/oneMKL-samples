@@ -582,7 +582,7 @@ void prepare_svd_kernel(int num_paths,
   // Initialize the shared memory.
   if (item_ct1.get_local_id(2) < R_W_MATRICES_SMEM_SLOTS)
     smem_svds[item_ct1.get_local_id(2)] = 0.0;
-  item_ct1.barrier(sycl::access::fence_space::local_space);
+  sycl::group_barrier(item_ct1.get_group(), sycl::memory_scope::work_group);
 
   // Have we already found our 3 first paths which pay off.
   int found_paths = 0;
@@ -611,7 +611,7 @@ void prepare_svd_kernel(int num_paths,
       DPCT1118:3: SYCL group functions and algorithms must be encountered in
       converged control flow. You may need to adjust the code.
       */
-      item_ct1.barrier(sycl::access::fence_space::local_space);
+      sycl::group_barrier(item_ct1.get_group(), sycl::memory_scope::work_group);
       found_paths += total_sum;
     }
 
@@ -645,14 +645,14 @@ void prepare_svd_kernel(int num_paths,
   }
 
   // Make sure the scan is finished.
-  item_ct1.barrier(sycl::access::fence_space::local_space);
+  sycl::group_barrier(item_ct1.get_group(), sycl::memory_scope::work_group);
 
   // Compute the final reductions.
   m = sycl::reduce_over_group(item_ct1.get_group(), m, sycl::plus<>());
 
   // Do we all exit?
   int not_enough_paths =
-      (item_ct1.barrier(sycl::access::fence_space::local_space),
+      (sycl::group_barrier(item_ct1.get_group(), sycl::memory_scope::work_group),
        sycl::any_of_group(
            sycl::ext::oneapi::this_work_item::get_work_group<3>(),
            item_ct1.get_local_id(2) == 0 && m < min_in_the_money));
@@ -671,7 +671,7 @@ void prepare_svd_kernel(int num_paths,
   // The 1st thread has everything he needs to build R from the QR decomposition.
   if (item_ct1.get_local_id(2) == 0)
     svd_3x3(m, sums, smem_svds);
-  item_ct1.barrier(sycl::access::fence_space::local_space);
+  sycl::group_barrier(item_ct1.get_group(), sycl::memory_scope::work_group);
 
   // Store the final results.
   if (item_ct1.get_local_id(2) < R_W_MATRICES_SMEM_SLOTS)
@@ -713,7 +713,7 @@ void compute_partial_beta_kernel(int num_paths, Payoff payoff,
   // The 1st threads loads the matrices SVD and R.
   if (item_ct1.get_local_id(2) < R_W_MATRICES_SMEM_SLOTS)
     shared_svd[item_ct1.get_local_id(2)] = svd[item_ct1.get_local_id(2)];
-  item_ct1.barrier(sycl::access::fence_space::local_space);
+  sycl::group_barrier(item_ct1.get_group(), sycl::memory_scope::work_group);
 
   // Load the terms of R.
   const double R00 = shared_svd[ 0];
@@ -912,7 +912,7 @@ void update_cashflow_kernel(int num_paths,
     smem_beta[1] = sums.y();
     smem_beta[2] = sums.z();
   }
-  item_ct1.barrier(sycl::access::fence_space::local_space);
+  sycl::group_barrier(item_ct1.get_group(), sycl::memory_scope::work_group);
 
   // Load the beta coefficients from SMEM.
   const double beta0 = smem_beta[0];
